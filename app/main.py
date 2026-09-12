@@ -5,8 +5,24 @@ from random import randrange
 import psycopg2
 from psycopg2.extras import RealDictCursor
 import time
+from . import models
+from .database import engine, SessionLocal
+
+models.Base,metadata.create_all(bind=engine)
 
 app = FastAPI()
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+@app.on_event("shutdown")
+def shutdown():
+    if conn:
+        conn.close()
 
 class Post(BaseModel):
     title: str
@@ -30,19 +46,15 @@ while True:
         print("Error:", error)
         time.sleep(2)
 
-my_posts = [{"title": "title of the post 1", "content": "content of the post 1", "id": 1}, {"title": "favorite foods", "content": "I like pizza", "id": 2}]
 
-def find_post(id):
-    for p in my_posts:
-        if p["id"] == id:
-            return p
+
 
 @app.get("/")
 def root():
     return {"message": "Hello World"}
 
 @app.get("/posts")
-def get_post():
+def get_post() -> dict:
     cursor.execute(""" SELECT * FROM posts""")
     posts = cursor.fetchall()
     return {"message": posts}
@@ -65,7 +77,7 @@ def get_post(id : int):
 
 @app.delete("/posts/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_post(id : int):
-    cursor.execute("""DELETE FROM posts WHERE id = %s RETURNING * """, (str(id),))
+    cursor.execute("""DELETE FROM posts WHERE id = %s RETURNING * """, (id,))
     deleted_post = cursor.fetchone()
     conn.commit()
     if not deleted_post:
