@@ -1,6 +1,7 @@
 from fastapi import Body, Depends, FastAPI, Response, status, HTTPException
 from pydantic import BaseModel
 from typing import Optional
+import os
 from random import randrange
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -37,8 +38,8 @@ try:
     conn = psycopg2.connect(
         host="localhost",
         database="fastapi",
-        user="postgres",
-        password="postgres",
+        user=os.getenv("POSTGRES_USER", "postgres"),
+        password=os.getenv("POSTGRES_PASSWORD", ""),
         cursor_factory=RealDictCursor,
     )
     cursor = conn.cursor()
