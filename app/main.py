@@ -7,41 +7,45 @@ from psycopg2.extras import RealDictCursor
 import time
 from . import models
 from .database import engine, get_db
-from  sqlalchemy.orm import Session 
+from sqlalchemy.orm import Session
 
-models.Base.metadata.create_all(bind=engine)
+try:
+    models.Base.metadata.create_all(bind=engine)
+except Exception as error:
+    print("Database initialization failed")
+    print("Error:", error)
+
 app = FastAPI()
 
 
 @app.on_event("shutdown")
 def shutdown():
-    if conn:
+    global conn
+    if conn is not None:
         conn.close()
+        conn = None
 
 class Post(BaseModel):
     title: str
     content: str
     published: bool = True
 
-while True:
-    try:
-        conn = psycopg2.connect(
-            host="localhost",
-            database="fastapi",
-            user="postgres",
-            password="2003",
-            cursor_factory=RealDictCursor
-        )
-        cursor = conn.cursor()
-        print("Database connection is successful!")
-        break
-    except Exception as error:
-        print("Connecting to database failed")
-        print("Error:", error)
-        time.sleep(2)
+conn = None
+cursor = None
 
-
-
+try:
+    conn = psycopg2.connect(
+        host="localhost",
+        database="fastapi",
+        user="postgres",
+        password="postgres",
+        cursor_factory=RealDictCursor,
+    )
+    cursor = conn.cursor()
+    print("Database connection is successful!")
+except Exception as error:
+    print("Connecting to database failed")
+    print("Error:", error)
 
 @app.get("/")
 def root():
@@ -54,7 +58,7 @@ def test_posts(db: Session = Depends(get_db)):
 
 
 @app.get("/posts")
-def get_post(db: Session = Depends(get_db)):
+def get_all_posts(db: Session = Depends(get_db)):
     # cursor.execute(""" SELECT * FROM posts""")
     # posts = cursor.fetchall()
     posts = db.query(models.Post).all()
@@ -73,7 +77,7 @@ def create_post(post: Post, db: Session = Depends(get_db)):
     return {"data": new_post}
 
 @app.get("/posts/{id}")
-def get_post(id : int):
+def get_post_by_id(id : int):
     cursor.execute("""SELECT * FROM posts WHERE id = %s """, (str(id),))
     post = cursor.fetchone()
     if not post:
